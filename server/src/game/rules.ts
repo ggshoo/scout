@@ -11,7 +11,8 @@ import {
 /**
  * A set of cards from your hand is valid if:
  *  - all cards show the same value, OR
- *  - the values form a strictly consecutive ascending sequence.
+ *  - the values form a strictly consecutive ascending sequence, OR
+ *  - the values form a strictly consecutive descending sequence.
  * The cards must also be a contiguous slice of the hand (indices are consecutive).
  */
 export function isValidSet(cards: HandCard[]): boolean {
@@ -22,8 +23,18 @@ export function isValidSet(cards: HandCard[]): boolean {
   if (values.every((v) => v === values[0])) return true;
 
   // Check consecutive run (ascending)
+  let isAscending = true;
   for (let i = 1; i < values.length; i++) {
-    if (values[i] !== values[i - 1] + 1) return false;
+    if (values[i] !== values[i - 1] + 1) {
+      isAscending = false;
+      break;
+    }
+  }
+  if (isAscending) return true;
+
+  // Check consecutive run (descending)
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] !== values[i - 1] - 1) return false;
   }
   return true;
 }
