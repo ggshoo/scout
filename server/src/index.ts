@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
+import rateLimit from 'express-rate-limit';
 import {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -23,6 +24,16 @@ const FRONTEND_URL = process.env.FRONTEND_URL ?? '*';
 const app = express();
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
+
+// Basic rate-limiter for HTTP routes (static file serving included)
+const httpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300,            // 300 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use(httpLimiter);
 
 // Serve static frontend files
 const publicDir = path.join(__dirname, 'public');
@@ -123,6 +134,6 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(Number(PORT), "0.0.0.0", () => {
+httpServer.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Scout server listening on port ${PORT}`);
 });
