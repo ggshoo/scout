@@ -141,9 +141,6 @@ export default function GameTable({
 
   const isInInsertMode = uiMode === 'scout_pending' || uiMode === 'scout_show_step2';
 
-  // canScout: available whenever it's your turn and there's an active show
-  const canScout = isMyTurn && !!gameState.tableShow && !isInInsertMode && uiMode !== 'scout_show_step1';
-
   // ─── Render orientation phase ────────────────────────────────────────────
   if (phase === 'orientation') {
     return (
@@ -174,6 +171,8 @@ export default function GameTable({
 
   // ─── Render playing phase ─────────────────────────────────────────────────
   const canShow = isMyTurn && selectedIndices.length > 0 && uiMode !== 'scout_pending' && uiMode !== 'scout_show_step1' && uiMode !== 'scout_show_step2';
+  // canScout: available whenever it's your turn and there's an active show
+  const canScout = isMyTurn && !!gameState.tableShow && !isInInsertMode && uiMode !== 'scout_show_step1';
   const canScoutAndShow = isMyTurn && !!gameState.tableShow && me.scoutShowTokens > 0;
 
   const scoutEndForShow = uiMode === 'scout_show_step1';

@@ -44,6 +44,7 @@ export function isValidSet(cards: HandCard[]): boolean {
  * Returns true if all cards in the set show the same value.
  */
 export function isAllSame(cards: HandCard[]): boolean {
+  if (cards.length === 0) return false;
   const values = cards.map(visibleValue);
   return values.every((v) => v === values[0]);
 }
