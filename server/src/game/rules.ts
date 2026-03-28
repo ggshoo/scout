@@ -41,26 +41,31 @@ export function isValidSet(cards: HandCard[]): boolean {
 
 /**
  * Returns the "strength" of a set for comparison purposes.
- * Higher size is always better.  For same-size sets we compare
- * [minValue, maxValue] lexicographically.
+ * The tuple is compared lexicographically:
+ *  [length, typeRank, minValue, maxValue]
+ * where typeRank is 1 for a same-same hand and 0 for a consecutive run.
  */
-function setStrength(cards: HandCard[]): [number, number, number] {
+function setStrength(cards: HandCard[]): [number, number, number, number] {
   const values = cards.map(visibleValue);
-  return [cards.length, Math.min(...values), Math.max(...values)];
+  const isSameSame = values.every((v) => v === values[0]);
+  const typeRank = isSameSame ? 1 : 0; // same-same (1) beats consecutive run (0)
+  return [cards.length, typeRank, Math.min(...values), Math.max(...values)];
 }
 
 /**
  * Returns true if `challenger` beats `incumbent`.
  * Rules:
  *  1. More cards always wins.
- *  2. Same card count → higher minimum value wins.
- *  3. Still tied → higher maximum value wins.
+ *  2. Same card count → same-same hand beats a consecutive run.
+ *  3. Same card count and same type → higher minimum value wins.
+ *  4. Still tied → higher maximum value wins.
  */
 export function beatsShow(challenger: HandCard[], incumbent: TableShow): boolean {
-  const [cLen, cMin, cMax] = setStrength(challenger);
-  const [iLen, iMin, iMax] = setStrength(incumbent.cards);
+  const [cLen, cType, cMin, cMax] = setStrength(challenger);
+  const [iLen, iType, iMin, iMax] = setStrength(incumbent.cards);
 
   if (cLen !== iLen) return cLen > iLen;
+  if (cType !== iType) return cType > iType;
   if (cMin !== iMin) return cMin > iMin;
   return cMax > iMax;
 }
