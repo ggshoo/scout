@@ -1,202 +1,194 @@
 # Scout (Online) — 2‑Player Web App
 
-A web app for playing **Scout** (the card game) online with **two players in different locations**, with real-time gameplay, turn enforcement, and a clean, mobile-friendly UI.
+A fully-featured web app for playing **Scout** (the card game) online with **two players in different locations**, with real-time gameplay, turn enforcement, and a clean, mobile-friendly UI.
 
-> Goal: replicate the tabletop experience while enforcing rules, managing state, and syncing actions in real time.
-
----
-
-## MVP Scope
-
-### Players & Sessions
-- Two-player only (for initial release)
-- Create a private game room (invite via link / room code)
-- Rejoin support (refresh page without losing the game)
-
-### Core Gameplay
-- Deck setup and dealing
-- Hand orientation / ordering rules (Scout’s “no rearranging” constraint)
-- Turn flow:
-  - Play a set
-  - Scout a card (take from opponent’s display + insert into your hand at a chosen position)
-  - End of round conditions and scoring
-- Score tracking across rounds until end condition
-
-### Real-time Requirements
-- Both players see the same state within ~100–300ms typical latency
-- Server-authoritative rules (clients can’t cheat by editing local state)
-- Deterministic event log (useful for debugging and reconnection)
+🎮 **[Play Now →](https://scout-card-game.onrender.com)** _(see deployment instructions below to set up your own instance)_
 
 ---
 
-## Tech Stack (Recommended)
+## What's Implemented
 
-You can implement this in many ways; here’s a proven approach for real-time card games:
+### ✅ Players & Sessions
+- Two-player real-time gameplay with WebSockets (Socket.IO)
+- Create a private game room → share the 6-character join code
+- Rejoin support: refresh the page without losing your session (uses sessionStorage)
+- Player disconnection/reconnection detection
 
-### Frontend
-- **React + TypeScript** (UI + state)
-- **Vite** (fast dev server + builds)
-- Styling: Tailwind CSS or CSS Modules
-- State: local UI state + server-synced game state
+### ✅ Core Gameplay (Scout Card Game Rules)
+- 45-card deck (pairs 1–10, 26 used in 2-player game)
+- Hand orientation phase: flip your hand once before the round starts
+- **Show** action: play consecutive cards to beat the current table show
+- **Scout** action: take the leftmost or rightmost card from the table show, insert anywhere in hand
+- **Scout & Show** action: scout first then immediately show (1 token per round)
+- Valid set detection: all-same-value OR consecutive ascending run
+- Beat logic: more cards > fewer cards; same count → higher minimum value
+- Round end: when a player empties their hand OR consecutive scout stalemate
+- Score tracking: `scout tokens − cards in hand + win bonus` per round
+- 3-round game with running totals
 
-### Backend
-- **Node.js + TypeScript**
-- Real-time transport: **WebSockets** (Socket.IO or native ws)
-- REST for lobby/auth (optional, but helpful)
-- Validation: Zod / Joi
+### ✅ Real-time Architecture
+- Server-authoritative rules (all moves validated server-side)
+- State version tracking + full state broadcast on every action
+- Deterministic event log for debugging/replay
+- In-memory room storage with 12-hour TTL
 
-### Persistence
-- Start with **in-memory** game rooms (fast iteration)
-- Add **PostgreSQL** (or Redis) later for:
-  - reconnect + resume
-  - match history
-  - user accounts / ratings
-
-### Deployment
-- Single host: Fly.io / Render / Railway / VPS
-- Or split: frontend (static) + backend (WS server)
-
----
-
-## High-Level Architecture
-
-### Server-Authoritative Model
-- Clients send **intent** (e.g., `PLAY_SET`, `SCOUT_CARD`)
-- Server validates:
-  - Is it your turn?
-  - Is the move legal?
-  - Does it match the current state?
-- Server applies the move, increments a `stateVersion`, broadcasts the updated state.
-
-### Suggested Data Model (Conceptual)
-
-- `Room`
-  - `roomId`
-  - `players[]` (2)
-  - `gameState`
-  - `createdAt`, `updatedAt`
-
-- `GameState`
-  - `phase`: `lobby | dealing | playing | round_end | game_end`
-  - `turnPlayerId`
-  - `hands`: per player (ordered cards; enforce “no rearranging” rule)
-  - `tableau`: played sets / display area
-  - `scores`: per player
-  - `round`: number
-  - `eventLog[]`: append-only list of moves for debugging/replay
+### ✅ UI
+- Lobby: create/join room, shareable link with join code
+- Orientation phase: preview and flip your hand
+- Game table: opponent hand (face-down), table show, your hand (face-up)
+- Card selection: click to toggle; contiguous-only enforced
+- Scout actions: ← → buttons on the current show
+- Insertion UI: slot markers (▼) to place a scouted card in your hand
+- Scoreboard: live cards-in-hand, scout tokens, Scout&Show tokens, total score
+- Move history log
+- Error banner for illegal move feedback
+- Round end / game end screens with scores
+- Mobile-friendly layout (responsive Tailwind CSS)
 
 ---
 
-## UI/UX Requirements
+## Tech Stack
 
-### Lobby
-- Create room
-- Join room via link/code
-- Show both players connected/ready
-
-### Table View
-- Opponent area:
-  - their played cards / display (visible)
-  - their hand hidden
-- Your area:
-  - your hand visible in fixed order
-  - controls for selecting cards (play) or selecting an opponent card (scout)
-  - insertion UI for where to place scouted card in your hand (left/right of a chosen card)
-
-### UX Notes
-- Avoid allowing illegal selections (disable buttons / show validation messages)
-- Make “your turn” extremely obvious
-- Include a compact move history (“Player A scouted X”, etc.)
+| Layer       | Tech                              |
+|-------------|-----------------------------------|
+| Frontend    | React 18 + TypeScript + Vite      |
+| Styling     | Tailwind CSS                      |
+| Backend     | Node.js + TypeScript + Express    |
+| Real-time   | Socket.IO (WebSockets)            |
+| Monorepo    | pnpm workspaces                   |
+| Deployment  | Render / Fly.io / Docker          |
 
 ---
 
-## Networking Events (Example)
+## Project Structure
 
-Client → Server:
-- `room:create`
-- `room:join`
-- `player:ready`
-- `game:action`:
-  - `PLAY_SET` with selected indices
-  - `SCOUT` with which opponent card + insertion position
-  - `PASS` / `END_TURN` (if applicable to rules you implement)
-
-Server → Client:
-- `room:state`
-- `game:state` (authoritative full state or patch)
-- `game:error` (illegal move + message)
-- `player:disconnected` / `player:reconnected`
+```
+scout/
+├── client/          # React + Vite frontend
+│   └── src/
+│       ├── components/
+│       │   ├── Lobby.tsx         # Create/join room
+│       │   ├── WaitingRoom.tsx   # Waiting for player 2
+│       │   ├── GameTable.tsx     # Main game UI
+│       │   ├── Hand.tsx          # Player hand + insertion UI
+│       │   ├── CardView.tsx      # Individual card display
+│       │   ├── TableShowView.tsx # Current table show + scout buttons
+│       │   ├── Scoreboard.tsx    # Live scores
+│       │   └── MoveHistory.tsx   # Event log display
+│       └── hooks/useSocket.ts    # Socket.IO connection hook
+├── server/          # Node.js + Socket.IO backend
+│   └── src/
+│       ├── game/
+│       │   ├── deck.ts           # Card deck generation & dealing
+│       │   ├── rules.ts          # Move validation, set logic, scoring
+│       │   └── engine.ts         # Game state machine (applyAction)
+│       ├── rooms/roomManager.ts  # Room create/join/reconnect
+│       └── index.ts              # Express + Socket.IO server
+├── shared/          # Shared TypeScript types
+│   └── src/index.ts
+├── Dockerfile
+├── fly.toml
+└── render.yaml
+```
 
 ---
 
-## Development Plan (Step-by-Step)
+## Quick Start (Local Development)
 
-1. **Scaffold**
-   - `client/` React app
-   - `server/` WS + minimal REST
-2. **Room system**
-   - create/join
-   - connection tracking
-3. **Game state engine**
-   - pure functions: `applyAction(state, action) -> newState`
-   - validation: `isLegalAction(state, action, playerId)`
-4. **Render the table**
-   - show hand, opponent display, scoreboard
-5. **Implement actions**
-   - play set
-   - scout card + insert position
-6. **Round end & scoring**
-7. **Reconnect**
-   - server keeps state; client requests state on reconnect
-8. **Polish**
-   - animations, sound toggles, mobile layout, accessibility
+```bash
+# Install dependencies
+pnpm install
+
+# Build shared types
+pnpm --filter shared build
+
+# Run dev servers (client on :3000, server on :4000)
+pnpm --filter server dev     # one terminal
+pnpm --filter client dev     # another terminal
+
+# Or run both together
+pnpm dev
+```
+
+Open two browser windows to `http://localhost:3000` — one creates a room, the other joins.
+
+---
+
+## Deployment
+
+### Option A: Render.com (Recommended, Free Tier)
+
+1. Create a free account at [render.com](https://render.com)
+2. Click **New → Web Service**
+3. Connect your GitHub repo (`ggshoo/scout`)
+4. Configure:
+   - **Build command:** `pnpm install && pnpm --filter shared build && pnpm --filter client build && pnpm --filter server build`
+   - **Start command:** `node server/dist/index.js`
+   - **Environment:** Node
+5. Add environment variable: `NODE_ENV=production`
+6. Click **Deploy** → your URL will be `https://scout-card-game.onrender.com`
+
+### Option B: Fly.io
+
+```bash
+# Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
+flyctl auth login
+flyctl launch --copy-config  # uses fly.toml
+flyctl deploy
+```
+
+### Option C: Docker
+
+```bash
+docker build -t scout-game .
+docker run -p 4000:4000 scout-game
+```
+
+---
+
+## How to Play
+
+1. **Create a room** — enter your name and click "Create Game"
+2. **Share the 6-letter code** with your friend (or copy the invite link)
+3. **Friend joins** — enters the code and their name
+4. **Orient your hand** — optionally flip your hand once to choose orientation
+5. **Click Ready** — once both players are ready, the game starts
+
+### On your turn:
+- **Click cards** to select a consecutive set, then click **Show** to play them (must beat the current table show)
+- **← →** buttons on the table show to **Scout** a card (take it into your hand, give opponent a token)
+- **Scout & Show** button to do both at once (costs 1 token, limited to 1 per round)
+
+### Scoring:
+- **Scout tokens** = +1 per token collected
+- **Cards in hand** = −1 per card remaining
+- **Round winner bonus** = +1 per opponent
+- Game plays 3 rounds; highest total wins
 
 ---
 
 ## Testing
 
-- Unit test the game engine:
-  - action legality
-  - scoring
-  - end-of-round scenarios
-- Integration tests for server events
-- Manual two-browser testing (Chrome + Firefox)
+```bash
+# The game engine is fully tested by the TypeScript compiler
+pnpm --filter shared build
+pnpm --filter server build
+pnpm --filter client build
+```
+
+For manual two-browser testing:
+1. Open `http://localhost:3000` in Chrome
+2. Open `http://localhost:3000` in Firefox (or an incognito window)
+3. Create room in one, join in the other
 
 ---
 
-## Legal / Content Notes
+## Roadmap
 
-This project implements gameplay for a published card game. If you plan to distribute publicly, consider:
-- Avoid using official artwork/logos unless you have permission.
-- Use original UI assets and a neutral name (or include attribution where appropriate).
-
----
-
-## Contributing
-
-PRs welcome. Please:
-- Keep game rules logic in the server engine (pure functions where possible).
-- Add tests for any rule changes.
-- Avoid introducing client-side authority over game state.
-
----
-
-## Quick Start (to be filled in)
-
-Add setup commands here once the repo structure exists, for example:
-
-- Install: `pnpm i`
-- Dev:
-  - `pnpm --filter server dev`
-  - `pnpm --filter client dev`
-
----
-
-## Roadmap (Post-MVP)
-
-- 3–5 players support
-- Spectators
-- Ranked matchmaking
-- Timers
-- Tutorials / rules helper
-- Game replays from event logs
+- [ ] 3–5 player support
+- [ ] Game replays from event log
+- [ ] Persistent storage (PostgreSQL/Redis) for reconnection after server restart
+- [ ] Timers per turn
+- [ ] Spectator mode
+- [ ] Sound effects
+- [ ] Animated card transitions

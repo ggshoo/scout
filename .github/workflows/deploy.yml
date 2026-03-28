@@ -1,0 +1,53 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build shared
+        run: pnpm --filter shared build
+
+      - name: Build client
+        run: pnpm --filter client build
+
+      - name: Build server
+        run: pnpm --filter server build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-dist
+          path: server/dist/
+
+  # Uncomment and configure this job to deploy to Render.com
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Trigger Render Deploy
+  #       run: |
+  #         curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
