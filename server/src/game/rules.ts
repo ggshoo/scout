@@ -51,35 +51,32 @@ export function isAllSame(cards: HandCard[]): boolean {
 
 /**
  * Returns the "strength" of a set for comparison purposes.
- * Higher size is always better.  For same-size sets we compare
- * [minValue, maxValue] lexicographically.
+ * The tuple is compared lexicographically:
+ *  [length, typeRank, minValue, maxValue]
+ * where typeRank is 1 for a same-same hand and 0 for a consecutive run.
  */
-function setStrength(cards: HandCard[]): [number, number, number] {
+function setStrength(cards: HandCard[]): [number, number, number, number] {
   const values = cards.map(visibleValue);
-  return [cards.length, Math.min(...values), Math.max(...values)];
+  const typeRank = isAllSame(cards) ? 1 : 0; // same-same (1) beats consecutive run (0)
+  return [cards.length, typeRank, Math.min(...values), Math.max(...values)];
 }
 
 /**
  * Returns true if `challenger` beats `incumbent`.
  * Rules:
  *  1. More cards always wins.
- *  2. Same card count → matching-number set beats consecutive-number set.
+ *  2. Same card count → same-same hand beats a consecutive run.
  *  3. Same card count and same type → higher minimum value wins.
+ *  4. Still tied → higher maximum value wins.
  */
 export function beatsShow(challenger: HandCard[], incumbent: TableShow): boolean {
-  const cLen = challenger.length;
-  const iLen = incumbent.cards.length;
+  const [cLen, cType, cMin, cMax] = setStrength(challenger);
+  const [iLen, iType, iMin, iMax] = setStrength(incumbent.cards);
 
   if (cLen !== iLen) return cLen > iLen;
-
-  // Type comparison: all-same beats consecutive when count is equal
-  const cIsAllSame = isAllSame(challenger);
-  const iIsAllSame = isAllSame(incumbent.cards);
-  if (cIsAllSame !== iIsAllSame) return cIsAllSame;
-
-  const cMin = Math.min(...challenger.map(visibleValue));
-  const iMin = Math.min(...incumbent.cards.map(visibleValue));
-  return cMin > iMin;
+  if (cType !== iType) return cType > iType;
+  if (cMin !== iMin) return cMin > iMin;
+  return cMax > iMax;
 }
 
 // ─── Index Validation ────────────────────────────────────────────────────────
