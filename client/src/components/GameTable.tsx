@@ -79,11 +79,13 @@ export default function GameTable({
 
   // ── Scout flow ───────────────────────────────────────────────────────────
   const startScoutLeft = () => {
+    setSelectedIndices([]);
     setPendingScoutEnd('left');
     setUiMode('scout_pending');
   };
 
   const startScoutRight = () => {
+    setSelectedIndices([]);
     setPendingScoutEnd('right');
     setUiMode('scout_pending');
   };
@@ -139,6 +141,9 @@ export default function GameTable({
 
   const isInInsertMode = uiMode === 'scout_pending' || uiMode === 'scout_show_step2';
 
+  // canScout: available whenever it's your turn and there's an active show
+  const canScout = isMyTurn && !!gameState.tableShow && !isInInsertMode && uiMode !== 'scout_show_step1';
+
   // ─── Render orientation phase ────────────────────────────────────────────
   if (phase === 'orientation') {
     return (
@@ -169,7 +174,6 @@ export default function GameTable({
 
   // ─── Render playing phase ─────────────────────────────────────────────────
   const canShow = isMyTurn && selectedIndices.length > 0 && uiMode !== 'scout_pending' && uiMode !== 'scout_show_step1' && uiMode !== 'scout_show_step2';
-  const canScout = isMyTurn && !!gameState.tableShow && uiMode !== 'selecting';
   const canScoutAndShow = isMyTurn && !!gameState.tableShow && me.scoutShowTokens > 0;
 
   const scoutEndForShow = uiMode === 'scout_show_step1';
@@ -259,6 +263,7 @@ export default function GameTable({
           {/* Action buttons */}
           {isMyTurn && (
             <div className="flex flex-wrap gap-2 justify-center pb-2">
+              {/* Show action */}
               <button
                 onClick={handleShow}
                 disabled={!canShow}
@@ -267,28 +272,42 @@ export default function GameTable({
                 Show ({selectedIndices.length} card{selectedIndices.length !== 1 ? 's' : ''})
               </button>
 
-              {uiMode === 'idle' || uiMode === 'selecting' ? (
+              {/* Scout actions — shown when it's your turn and there's an active set */}
+              {canScout && (
                 <>
-                  {canScoutAndShow && (
-                    <button
-                      onClick={handleScoutAndShow}
-                      disabled={!canScoutAndShow}
-                      className="btn bg-purple-700 hover:bg-purple-600 text-white"
-                      title={`Scout & Show tokens: ${me.scoutShowTokens}`}
-                    >
-                      Scout & Show ⚡{me.scoutShowTokens}
-                    </button>
-                  )}
+                  <button
+                    onClick={startScoutLeft}
+                    className="btn bg-blue-700 hover:bg-blue-600 text-white"
+                    title="Take the leftmost card from the Active Set and add it to your hand"
+                  >
+                    ← Scout Left
+                  </button>
+                  <button
+                    onClick={startScoutRight}
+                    className="btn bg-blue-700 hover:bg-blue-600 text-white"
+                    title="Take the rightmost card from the Active Set and add it to your hand"
+                  >
+                    Scout Right →
+                  </button>
                 </>
-              ) : (
-                <button onClick={reset} className="btn-secondary">
-                  Cancel
+              )}
+
+              {/* Scout & Show (not available in 2-player mode) */}
+              {(uiMode === 'idle' || uiMode === 'selecting') && canScoutAndShow && (
+                <button
+                  onClick={handleScoutAndShow}
+                  disabled={!canScoutAndShow}
+                  className="btn bg-purple-700 hover:bg-purple-600 text-white"
+                  title={`Scout & Show tokens: ${me.scoutShowTokens}`}
+                >
+                  Scout & Show ⚡{me.scoutShowTokens}
                 </button>
               )}
 
-              {uiMode === 'idle' && (
-                <button onClick={reset} className="btn-secondary opacity-50" disabled>
-                  (Select cards or scout →)
+              {/* Cancel when in a multi-step flow */}
+              {(uiMode === 'scout_pending' || uiMode === 'scout_show_step1' || uiMode === 'scout_show_step2') && (
+                <button onClick={reset} className="btn-secondary">
+                  Cancel
                 </button>
               )}
             </div>

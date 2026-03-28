@@ -17,6 +17,7 @@ import {
   insertIntoHand,
   isRoundOver,
   calculateRoundScores,
+  canPlayerAct,
 } from './rules';
 
 const SCOUT_SHOW_TOKENS_PER_ROUND = 1;
@@ -25,6 +26,7 @@ const SCOUT_SHOW_TOKENS_PER_ROUND = 1;
 
 export function createInitialGameState(players: Array<{ id: string; name: string }>): GameState {
   const playerOrder = players.map((p) => p.id);
+  const isTwoPlayer = players.length === 2;
   const playerMap: Record<string, PlayerState> = {};
   for (const p of players) {
     playerMap[p.id] = {
@@ -33,8 +35,10 @@ export function createInitialGameState(players: Array<{ id: string; name: string
       hand: [],
       hasFlipped: false,
       isReady: false,
-      scoutTokens: 0,
-      scoutShowTokens: SCOUT_SHOW_TOKENS_PER_ROUND,
+      // 2-player: start with 3 Scout chips and no Scout & Show chips
+      scoutTokens: isTwoPlayer ? 3 : 0,
+      scoutShowTokens: isTwoPlayer ? 0 : SCOUT_SHOW_TOKENS_PER_ROUND,
+      capturedCards: 0,
       totalScore: 0,
     };
   }
@@ -58,9 +62,26 @@ export function createInitialGameState(players: Array<{ id: string; name: string
 export function dealRound(state: GameState): GameState {
   const { hand0, hand1 } = dealCards();
   const [id0, id1] = state.playerOrder;
+  const isTwoPlayer = state.playerOrder.length === 2;
   const players = { ...state.players };
-  players[id0] = { ...players[id0], hand: hand0, hasFlipped: false, isReady: false, scoutTokens: 0, scoutShowTokens: SCOUT_SHOW_TOKENS_PER_ROUND };
-  players[id1] = { ...players[id1], hand: hand1, hasFlipped: false, isReady: false, scoutTokens: 0, scoutShowTokens: SCOUT_SHOW_TOKENS_PER_ROUND };
+  players[id0] = {
+    ...players[id0],
+    hand: hand0,
+    hasFlipped: false,
+    isReady: false,
+    scoutTokens: isTwoPlayer ? 3 : 0,
+    scoutShowTokens: isTwoPlayer ? 0 : SCOUT_SHOW_TOKENS_PER_ROUND,
+    capturedCards: 0,
+  };
+  players[id1] = {
+    ...players[id1],
+    hand: hand1,
+    hasFlipped: false,
+    isReady: false,
+    scoutTokens: isTwoPlayer ? 3 : 0,
+    scoutShowTokens: isTwoPlayer ? 0 : SCOUT_SHOW_TOKENS_PER_ROUND,
+    capturedCards: 0,
+  };
   return { ...state, players, phase: 'orientation', tableShow: null, consecutiveScouts: 0 };
 }
 
@@ -124,8 +145,12 @@ export function applyAction(
       let newHand = [...player.hand];
       for (const i of sortedDesc) newHand.splice(i, 1);
 
+      // Capture cards from the defeated Active Set
+      const beatenCount = state.tableShow ? state.tableShow.cards.length : 0;
+      const newCaptured = player.capturedCards + beatenCount;
+
       const newShow: TableShow = { cards, playedBy: playerId };
-      let newState = updatePlayer(state, playerId, { hand: newHand });
+      let newState = updatePlayer(state, playerId, { hand: newHand, capturedCards: newCaptured });
       newState = { ...newState, tableShow: newShow, consecutiveScouts: 0 };
 
       const vals = cards.map(visibleValue).join(', ');
@@ -145,16 +170,37 @@ export function applyAction(
       if (!state.tableShow) return err('There is no current show to scout from.');
       if (state.tableShow.cards.length === 0) return err('The show is empty.');
 
-      const scoutResult = doScout(state, playerId, action);
+      const isTwoPlayer = state.playerOrder.length === 2;
+      const player = state.players[playerId];
+
+      // 2-player: scouting costs 1 of the player's own Scout chips
+      if (isTwoPlayer && player.scoutTokens <= 0) {
+        return err('No Scout chips remaining. You must Show.');
+      }
+
+      const scoutResult = doScout(state, playerId, action, isTwoPlayer);
       if ('error' in scoutResult) return err(scoutResult.error);
 
       let newState = scoutResult.state;
       newState = { ...newState, consecutiveScouts: newState.consecutiveScouts + 1 };
-      newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId) };
 
-      if (isRoundOver(toHandMap(newState), newState.consecutiveScouts, newState.playerOrder.length)) {
-        return { state: endRound(newState, null) };
+      if (isTwoPlayer) {
+        // 2-player: same player goes again after Scouting
+        newState = { ...newState, currentTurnPlayerId: playerId };
+
+        // Check if that player can still act (has chips or can Show)
+        const updatedPlayer = newState.players[playerId];
+        if (!canPlayerAct(updatedPlayer, newState.tableShow)) {
+          return { state: endRound(newState, null) };
+        }
+      } else {
+        newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId) };
+
+        if (isRoundOver(toHandMap(newState), newState.consecutiveScouts, newState.playerOrder.length)) {
+          return { state: endRound(newState, null) };
+        }
       }
+
       return { state: newState };
     }
 
@@ -165,7 +211,7 @@ export function applyAction(
       const player = state.players[playerId];
       if (player.scoutShowTokens <= 0) return err('No Scout & Show tokens remaining.');
 
-      const scoutResult = doScout(state, playerId, { type: 'SCOUT', ...action.scout });
+      const scoutResult = doScout(state, playerId, { type: 'SCOUT', ...action.scout }, false);
       if ('error' in scoutResult) return err(scoutResult.error);
 
       let midState = updatePlayer(scoutResult.state, playerId, {
@@ -250,6 +296,7 @@ function doScout(
   state: GameState,
   playerId: string,
   action: { type: 'SCOUT'; end: 'left' | 'right'; insertAt: number; face: 'lo' | 'hi' },
+  isTwoPlayer: boolean = false,
 ): { state: GameState } | { error: string } {
   const player = state.players[playerId];
   const show = state.tableShow!;
@@ -257,13 +304,20 @@ function doScout(
   const orientedCard: HandCard = { ...card, face: action.face };
   const newHand = insertIntoHand(player.hand, orientedCard, action.insertAt);
 
-  // Give scout token to the show's player
-  const showOwnerId = show.playedBy;
-  const showOwner = state.players[showOwnerId];
-
   let newState = updatePlayer(state, playerId, { hand: newHand });
-  if (showOwnerId !== playerId) {
-    newState = updatePlayer(newState, showOwnerId, { scoutTokens: showOwner.scoutTokens + 1 });
+
+  if (isTwoPlayer) {
+    // 2-player: scouting player pays 1 Scout chip to the center
+    newState = updatePlayer(newState, playerId, {
+      scoutTokens: newState.players[playerId].scoutTokens - 1,
+    });
+  } else {
+    // Normal: give 1 Scout chip to the show owner
+    const showOwnerId = show.playedBy;
+    const showOwner = newState.players[showOwnerId];
+    if (showOwnerId !== playerId) {
+      newState = updatePlayer(newState, showOwnerId, { scoutTokens: showOwner.scoutTokens + 1 });
+    }
   }
 
   const newShow: TableShow | null =
@@ -280,6 +334,7 @@ function endRound(state: GameState, winnerId: string | null): GameState {
     id,
     hand: state.players[id].hand,
     scoutTokens: state.players[id].scoutTokens,
+    capturedCards: state.players[id].capturedCards,
   }));
   const scores = calculateRoundScores(players, winnerId);
 

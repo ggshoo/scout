@@ -14,16 +14,21 @@ A fully-featured web app for playing **Scout** (the card game) online with **two
 - Rejoin support: refresh the page without losing your session (uses sessionStorage)
 - Player disconnection/reconnection detection
 
-### ✅ Core Gameplay (Scout Card Game Rules)
+### ✅ Core Gameplay — 2-Player Scout Rules
 - 45-card deck (pairs 1–10, 26 used in 2-player game)
 - Hand orientation phase: flip your hand once before the round starts
-- **Show** action: play consecutive cards to beat the current table show
-- **Scout** action: take the leftmost or rightmost card from the table show, insert anywhere in hand
-- **Scout & Show** action: scout first then immediately show (1 token per round)
-- Valid set detection: all-same-value OR consecutive ascending run
-- Beat logic: more cards > fewer cards; same count → higher minimum value
-- Round end: when a player empties their hand OR consecutive scout stalemate
-- Score tracking: `scout tokens − cards in hand + win bonus` per round
+- **Show** action: play a consecutive set from your hand to beat the Active Set
+  - Valid sets: all-same-value (e.g. 3-3-3) or strictly consecutive ascending/descending (e.g. 4-5-6 or 6-5-4)
+  - Beat logic: more cards > fewer cards; same count → matching-number set beats consecutive set; same count & type → higher minimum value wins
+  - Defeated Active Set cards are collected as score counters (+1 point each)
+- **Scout** action: take the leftmost or rightmost card from the Active Set, insert anywhere in hand, optionally flip its face
+  - Costs 1 of the player's own Scout chips
+  - After Scouting, the same player takes another turn immediately
+  - If the player has no Scout chips they cannot Scout (must Show)
+- **Scout & Show** action: not used in 2-player mode
+- Each player starts each round with **3 Scout chips** (no Scout & Show chips)
+- Round end: when a player empties their hand OR the current player cannot Show or Scout
+- Score per round: `captured cards + remaining Scout chips − cards in hand`; winner bonus: +1 per opponent
 - 3-round game with running totals
 
 ### ✅ Real-time Architecture
@@ -35,11 +40,11 @@ A fully-featured web app for playing **Scout** (the card game) online with **two
 ### ✅ UI
 - Lobby: create/join room, shareable link with join code
 - Orientation phase: preview and flip your hand
-- Game table: opponent hand (face-down), table show, your hand (face-up)
+- Game table: opponent hand (face-down), Active Set, your hand (face-up)
 - Card selection: click to toggle; contiguous-only enforced
-- Scout actions: ← → buttons on the current show
-- Insertion UI: slot markers (▼) to place a scouted card in your hand
-- Scoreboard: live cards-in-hand, scout tokens, Scout&Show tokens, total score
+- **Scout Left / Scout Right** buttons clearly visible in the action bar when an Active Set is present
+- Insertion UI: slot markers (▼) to place a scouted card anywhere in your hand; choose which face to show
+- Scoreboard: live cards-in-hand, Scout chips, captured cards, total score
 - Move history log
 - Error banner for illegal move feedback
 - Round end / game end screens with scores
@@ -155,14 +160,18 @@ docker run -p 4000:4000 scout-game
 5. **Click Ready** — once both players are ready, the game starts
 
 ### On your turn:
-- **Click cards** to select a consecutive set, then click **Show** to play them (must beat the current table show)
-- **← →** buttons on the table show to **Scout** a card (take it into your hand, give opponent a token)
-- **Scout & Show** button to do both at once (costs 1 token, limited to 1 per round)
+- **Click cards** to select a consecutive set, then click **Show** to play them (must beat the Active Set)
+  - A set of matching numbers (e.g. 5-5-5) beats a same-size consecutive set (e.g. 3-4-5)
+  - Among same-type, same-size sets the one with the higher minimum value wins
+  - Defeated Active Set cards are yours as score counters (+1 each)
+- **← Scout Left** / **Scout Right →** buttons to **Scout** a card (take one card from either end of the Active Set into your hand; costs 1 of your Scout chips; you go again immediately)
+- You cannot Scout if you have no Scout chips remaining — you must Show
 
-### Scoring:
-- **Scout tokens** = +1 per token collected
+### Scoring (per round):
+- **Captured cards** = +1 per card taken from defeated Active Sets
+- **Scout chips** = +1 per chip remaining at end of round (started at 3, decreased by Scouting)
 - **Cards in hand** = −1 per card remaining
-- **Round winner bonus** = +1 per opponent
+- **Round winner bonus** = +1 per opponent (awarded to player who empties hand)
 - Game plays 3 rounds; highest total wins
 
 ---

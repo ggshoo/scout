@@ -8,6 +8,7 @@ interface Props {
 
 export default function Scoreboard({ state, myPlayerId }: Props) {
   const { players, playerOrder, round, roundScores } = state;
+  const isTwoPlayer = playerOrder.length === 2;
 
   return (
     <div className="bg-green-900/50 border border-green-700/40 rounded-xl p-3 text-sm">
@@ -35,8 +36,11 @@ export default function Scoreboard({ state, myPlayerId }: Props) {
               </div>
               <div className="flex items-center gap-3 text-xs text-green-300">
                 <span title="Cards in hand">🃏 {p.hand.length}</span>
-                <span title="Scout tokens">🔍 {p.scoutTokens}</span>
-                <span title="Scout+Show tokens">⚡ {p.scoutShowTokens}</span>
+                <span title={isTwoPlayer ? 'Scout chips (spend to Scout)' : 'Scout chips collected'}>🔍 {p.scoutTokens}</span>
+                <span title="Captured cards from defeated sets">🏆 {p.capturedCards}</span>
+                {!isTwoPlayer && (
+                  <span title="Scout+Show tokens">⚡ {p.scoutShowTokens}</span>
+                )}
                 <span className="text-white font-bold text-sm" title="Total score">
                   {p.totalScore}
                 </span>

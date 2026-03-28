@@ -1,6 +1,7 @@
 import {
   HandCard,
   TableShow,
+  PlayerState,
   visibleValue,
   ShowAction,
   ScoutAction,
@@ -40,6 +41,14 @@ export function isValidSet(cards: HandCard[]): boolean {
 }
 
 /**
+ * Returns true if all cards in the set show the same value.
+ */
+export function isAllSame(cards: HandCard[]): boolean {
+  const values = cards.map(visibleValue);
+  return values.every((v) => v === values[0]);
+}
+
+/**
  * Returns the "strength" of a set for comparison purposes.
  * Higher size is always better.  For same-size sets we compare
  * [minValue, maxValue] lexicographically.
@@ -53,16 +62,23 @@ function setStrength(cards: HandCard[]): [number, number, number] {
  * Returns true if `challenger` beats `incumbent`.
  * Rules:
  *  1. More cards always wins.
- *  2. Same card count → higher minimum value wins.
- *  3. Still tied → higher maximum value wins.
+ *  2. Same card count → matching-number set beats consecutive-number set.
+ *  3. Same card count and same type → higher minimum value wins.
  */
 export function beatsShow(challenger: HandCard[], incumbent: TableShow): boolean {
-  const [cLen, cMin, cMax] = setStrength(challenger);
-  const [iLen, iMin, iMax] = setStrength(incumbent.cards);
+  const cLen = challenger.length;
+  const iLen = incumbent.cards.length;
 
   if (cLen !== iLen) return cLen > iLen;
-  if (cMin !== iMin) return cMin > iMin;
-  return cMax > iMax;
+
+  // Type comparison: all-same beats consecutive when count is equal
+  const cIsAllSame = isAllSame(challenger);
+  const iIsAllSame = isAllSame(incumbent.cards);
+  if (cIsAllSame !== iIsAllSame) return cIsAllSame;
+
+  const cMin = Math.min(...challenger.map(visibleValue));
+  const iMin = Math.min(...incumbent.cards.map(visibleValue));
+  return cMin > iMin;
 }
 
 // ─── Index Validation ────────────────────────────────────────────────────────
@@ -135,16 +151,16 @@ export function isRoundOver(
 
 /**
  * Calculate round scores.
- * score = scoutTokens – cardsInHand
+ * score = capturedCards + scoutTokens – cardsInHand
  * The player who ended the round (empty hand or forced win) gets +1 per opponent.
  */
 export function calculateRoundScores(
-  players: Array<{ id: string; hand: HandCard[]; scoutTokens: number }>,
+  players: Array<{ id: string; hand: HandCard[]; scoutTokens: number; capturedCards: number }>,
   winnerId: string | null,
 ): Record<string, number> {
   const scores: Record<string, number> = {};
   for (const p of players) {
-    scores[p.id] = p.scoutTokens - p.hand.length;
+    scores[p.id] = p.capturedCards + p.scoutTokens - p.hand.length;
   }
   // bonus for winner
   if (winnerId && winnerId in scores) {
@@ -152,4 +168,34 @@ export function calculateRoundScores(
     scores[winnerId] += opponents.length;
   }
   return scores;
+}
+
+// ─── 2-Player action availability ────────────────────────────────────────────
+
+/**
+ * Returns true if a player can make any valid move in 2-player mode.
+ * They can act if:
+ *  - They have Scout chips remaining AND there is an active show to scout from, OR
+ *  - They can make a valid Show (any contiguous slice of their hand beats the show,
+ *    or there is no show and they have at least one card).
+ */
+export function canPlayerAct(player: PlayerState, tableShow: TableShow | null): boolean {
+  if (player.hand.length === 0) return false;
+
+  // Can Scout if chips remain and there's something to scout from
+  if (player.scoutTokens > 0 && tableShow && tableShow.cards.length > 0) return true;
+
+  // Can Show any valid set when there's no active show
+  if (!tableShow) return true;
+
+  // Check if any contiguous subsequence of the hand forms a valid set that beats the show
+  for (let start = 0; start < player.hand.length; start++) {
+    for (let end = start; end < player.hand.length; end++) {
+      const cards = player.hand.slice(start, end + 1);
+      if (isValidSet(cards) && beatsShow(cards, tableShow)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
