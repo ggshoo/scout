@@ -57,7 +57,8 @@ export function isAllSame(cards: HandCard[]): boolean {
  */
 function setStrength(cards: HandCard[]): [number, number, number, number] {
   const values = cards.map(visibleValue);
-  const typeRank = isAllSame(cards) ? 1 : 0; // same-same (1) beats consecutive run (0)
+  const isSameSame = values.every((v) => v === values[0]);
+  const typeRank = isSameSame ? 1 : 0; // same-same (1) beats consecutive run (0)
   return [cards.length, typeRank, Math.min(...values), Math.max(...values)];
 }
 
