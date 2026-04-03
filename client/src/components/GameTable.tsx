@@ -332,8 +332,8 @@ function OrientationPhase({
     <div className="flex flex-col items-center justify-center min-h-screen p-4 gap-4">
       <h2 className="text-2xl font-bold text-yellow-400">Choose Your Hand Orientation</h2>
       <p className="text-green-300 text-sm text-center max-w-sm">
-        You may flip your hand once (reverse order + swap card values). After clicking Ready, you
-        cannot rearrange cards during the game.
+        You may flip your hand (reverse order + swap card values) as many times as you like. When
+        you're happy with your orientation, click Ready.
       </p>
 
       {lastError && (
@@ -358,10 +358,10 @@ function OrientationPhase({
       <div className="flex gap-3">
         <button
           onClick={onFlip}
-          disabled={me?.hasFlipped}
+          disabled={me?.isReady}
           className="btn-secondary"
         >
-          {me?.hasFlipped ? 'Already Flipped' : 'Flip Hand 🔄'}
+          Flip Hand 🔄
         </button>
         <button
           onClick={onReady}

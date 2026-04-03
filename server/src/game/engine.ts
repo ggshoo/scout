@@ -77,9 +77,8 @@ export function applyAction(
     case 'FLIP_HAND': {
       if (state.phase !== 'orientation') return err('You can only flip during the orientation phase.');
       const player = state.players[playerId];
-      if (player.hasFlipped) return err('You have already flipped your hand.');
       const newHand = flipHand(player.hand);
-      const newState = updatePlayer(state, playerId, { hand: newHand, hasFlipped: true });
+      const newState = updatePlayer(state, playerId, { hand: newHand, hasFlipped: !player.hasFlipped });
       return { state: log(newState, playerId, action, `${player.name} flipped their hand.`) };
     }
 
