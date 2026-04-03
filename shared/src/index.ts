@@ -95,8 +95,9 @@ export interface PlayerState {
   hand: HandCard[];
   hasFlipped: boolean;   // used their one-time flip
   isReady: boolean;
-  scoutTokens: number;   // received from opponents when scouted
-  scoutShowTokens: number; // remaining scout-and-show chips this round
+  scoutTokens: number;   // Scout chips (earned in 3-5p; spent in 2p)
+  scoutShowTokens: number; // remaining scout-and-show chips this round (0 for 2-player)
+  capturedCards: number; // cards taken from defeated Active Sets (each = +1 point)
   totalScore: number;    // cumulative across rounds
 }
 
