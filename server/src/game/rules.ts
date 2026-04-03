@@ -99,12 +99,10 @@ export function validateShowIndices(hand: HandCard[], indices: number[]): string
 // ─── Hand Flip ────────────────────────────────────────────────────────────────
 
 /**
- * Flip the entire hand: reverse order and toggle each card's face.
+ * Flip the entire hand: toggle each card's face without changing the order.
  */
 export function flipHand(hand: HandCard[]): HandCard[] {
-  return [...hand]
-    .reverse()
-    .map((c) => ({ ...c, face: c.face === 'lo' ? ('hi' as const) : ('lo' as const) }));
+  return hand.map((c) => ({ ...c, face: c.face === 'lo' ? ('hi' as const) : ('lo' as const) }));
 }
 
 // ─── Scout helpers ────────────────────────────────────────────────────────────
