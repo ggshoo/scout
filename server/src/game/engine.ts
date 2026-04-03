@@ -126,7 +126,7 @@ export function applyAction(
     case 'SHOW': {
       if (state.phase !== 'playing') return err('Not in playing phase.');
       if (state.currentTurnPlayerId !== playerId) return err('Not your turn.');
-      if (state.currentPlayerHasScoutedThisTurn) return err('You have already scouted this turn. You cannot show after scouting.');
+      if (state.currentPlayerHasScoutedThisTurn) return err('Cannot Show after Scouting. Scout again or wait for your next turn.');
       const player = state.players[playerId];
       const { indices } = action;
 
