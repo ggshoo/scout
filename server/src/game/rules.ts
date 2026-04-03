@@ -1,6 +1,7 @@
 import {
   HandCard,
   TableShow,
+  PlayerState,
   visibleValue,
   ShowAction,
   ScoutAction,
@@ -37,6 +38,15 @@ export function isValidSet(cards: HandCard[]): boolean {
     if (values[i] !== values[i - 1] - 1) return false;
   }
   return true;
+}
+
+/**
+ * Returns true if all cards in the set show the same value.
+ */
+export function isAllSame(cards: HandCard[]): boolean {
+  if (cards.length === 0) return false;
+  const values = cards.map(visibleValue);
+  return values.every((v) => v === values[0]);
 }
 
 /**
@@ -140,16 +150,16 @@ export function isRoundOver(
 
 /**
  * Calculate round scores.
- * score = scoutTokens – cardsInHand
+ * score = capturedCards + scoutTokens – cardsInHand
  * The player who ended the round (empty hand or forced win) gets +1 per opponent.
  */
 export function calculateRoundScores(
-  players: Array<{ id: string; hand: HandCard[]; scoutTokens: number }>,
+  players: Array<{ id: string; hand: HandCard[]; scoutTokens: number; capturedCards: number }>,
   winnerId: string | null,
 ): Record<string, number> {
   const scores: Record<string, number> = {};
   for (const p of players) {
-    scores[p.id] = p.scoutTokens - p.hand.length;
+    scores[p.id] = p.capturedCards + p.scoutTokens - p.hand.length;
   }
   // bonus for winner
   if (winnerId && winnerId in scores) {
@@ -157,4 +167,34 @@ export function calculateRoundScores(
     scores[winnerId] += opponents.length;
   }
   return scores;
+}
+
+// ─── 2-Player action availability ────────────────────────────────────────────
+
+/**
+ * Returns true if a player can make any valid move in 2-player mode.
+ * They can act if:
+ *  - They have Scout chips remaining AND there is an active show to scout from, OR
+ *  - They can make a valid Show (any contiguous slice of their hand beats the show,
+ *    or there is no show and they have at least one card).
+ */
+export function canPlayerAct(player: PlayerState, tableShow: TableShow | null): boolean {
+  if (player.hand.length === 0) return false;
+
+  // Can Scout if chips remain and there's something to scout from
+  if (player.scoutTokens > 0 && tableShow && tableShow.cards.length > 0) return true;
+
+  // Can Show any valid set when there's no active show
+  if (!tableShow) return true;
+
+  // Check if any contiguous subsequence of the hand forms a valid set that beats the show
+  for (let start = 0; start < player.hand.length; start++) {
+    for (let end = start; end < player.hand.length; end++) {
+      const cards = player.hand.slice(start, end + 1);
+      if (isValidSet(cards) && beatsShow(cards, tableShow)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
