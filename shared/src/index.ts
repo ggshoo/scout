@@ -122,6 +122,12 @@ export interface GameState {
   roundStartPlayerIdx: number;
   /** Number of consecutive scouts without a new show (used to detect stalemate). */
   consecutiveScouts: number;
+  /**
+   * 2-player only: true when the current player has already scouted this turn.
+   * Once set, the player may not Show — they can only Scout again (if chips remain)
+   * or their turn ends and this flag is reset when the turn passes.
+   */
+  currentPlayerHasScoutedThisTurn: boolean;
   eventLog: EventLogEntry[];
   roundScores: Array<Record<string, number>>; // one entry per completed round
 }

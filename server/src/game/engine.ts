@@ -52,6 +52,7 @@ export function createInitialGameState(players: Array<{ id: string; name: string
     tableShow: null,
     roundStartPlayerIdx: 0,
     consecutiveScouts: 0,
+    currentPlayerHasScoutedThisTurn: false,
     eventLog: [],
     roundScores: [],
   };
@@ -82,7 +83,7 @@ export function dealRound(state: GameState): GameState {
     scoutShowTokens: isTwoPlayer ? 0 : SCOUT_SHOW_TOKENS_PER_ROUND,
     capturedCards: 0,
   };
-  return { ...state, players, phase: 'orientation', tableShow: null, consecutiveScouts: 0 };
+  return { ...state, players, phase: 'orientation', tableShow: null, consecutiveScouts: 0, currentPlayerHasScoutedThisTurn: false };
 }
 
 // ─── Apply Action ─────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export function applyAction(
           currentTurnPlayerId: startId,
           tableShow: null,
           consecutiveScouts: 0,
+          currentPlayerHasScoutedThisTurn: false,
         };
         return { state: log(playingState, playerId, action, `${newState.players[playerId].name} is ready. Game starts!`) };
       }
@@ -124,6 +126,7 @@ export function applyAction(
     case 'SHOW': {
       if (state.phase !== 'playing') return err('Not in playing phase.');
       if (state.currentTurnPlayerId !== playerId) return err('Not your turn.');
+      if (state.currentPlayerHasScoutedThisTurn) return err('Cannot Show after Scouting. Scout again or wait for your next turn.');
       const player = state.players[playerId];
       const { indices } = action;
 
@@ -154,7 +157,7 @@ export function applyAction(
 
       const vals = cards.map(visibleValue).join(', ');
       newState = log(newState, playerId, action, `${player.name} shows [${vals}].`);
-      newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId) };
+      newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId), currentPlayerHasScoutedThisTurn: false };
 
       // Check round over
       if (isRoundOver(toHandMap(newState), newState.consecutiveScouts, newState.playerOrder.length)) {
@@ -184,16 +187,28 @@ export function applyAction(
       newState = { ...newState, consecutiveScouts: newState.consecutiveScouts + 1 };
 
       if (isTwoPlayer) {
-        // 2-player: same player goes again after Scouting
-        newState = { ...newState, currentTurnPlayerId: playerId };
+        // 2-player: same player goes again after Scouting, but cannot Show this turn
+        newState = { ...newState, currentTurnPlayerId: playerId, currentPlayerHasScoutedThisTurn: true };
 
-        // Check if that player can still act (has chips or can Show)
+        // Check if the player can still Scout (cannot Show after scouting)
         const updatedPlayer = newState.players[playerId];
-        if (!canPlayerAct(updatedPlayer, newState.tableShow)) {
-          return { state: endRound(newState, null) };
+        const canStillScout =
+          updatedPlayer.scoutTokens > 0 &&
+          newState.tableShow !== null &&
+          newState.tableShow.cards.length > 0;
+
+        if (!canStillScout) {
+          // Player has exhausted scouting options for this turn — pass to next player
+          const nextPlayerId = nextPlayer(state, playerId);
+          newState = { ...newState, currentTurnPlayerId: nextPlayerId, currentPlayerHasScoutedThisTurn: false };
+
+          // End the round if the next player cannot act
+          if (!canPlayerAct(newState.players[nextPlayerId], newState.tableShow)) {
+            return { state: endRound(newState, null) };
+          }
         }
       } else {
-        newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId) };
+        newState = { ...newState, currentTurnPlayerId: nextPlayer(state, playerId), currentPlayerHasScoutedThisTurn: false };
 
         if (isRoundOver(toHandMap(newState), newState.consecutiveScouts, newState.playerOrder.length)) {
           return { state: endRound(newState, null) };
