@@ -16,7 +16,7 @@ A fully-featured web app for playing **Scout** (the card game) online with **two
 
 ### ✅ Core Gameplay (Scout Card Game Rules)
 - 45-card deck (pairs 1–10, 26 used in 2-player game)
-- Hand orientation phase: flip your hand once before the round starts
+- Hand orientation phase: flip your hand as many times as you like before the round starts
 - **Show** action: play consecutive cards to beat the current table show
 - **Scout** action: take the leftmost or rightmost card from the table show, insert anywhere in hand
 - **Scout & Show** action: scout first then immediately show (1 token per round)
@@ -151,7 +151,7 @@ docker run -p 4000:4000 scout-game
 1. **Create a room** — enter your name and click "Create Game"
 2. **Share the 6-letter code** with your friend (or copy the invite link)
 3. **Friend joins** — enters the code and their name
-4. **Orient your hand** — optionally flip your hand once to choose orientation
+4. **Orient your hand** — optionally flip your hand (as many times as you like) to choose orientation
 5. **Click Ready** — once both players are ready, the game starts
 
 ### On your turn:

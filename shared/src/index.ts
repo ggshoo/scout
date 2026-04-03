@@ -32,7 +32,7 @@ export type GamePhase =
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
-/** Flip your entire hand (reverse order + swap face). Only once during orientation phase. */
+/** Flip your entire hand (reverse order + swap face). Allowed multiple times during orientation phase. */
 export interface FlipHandAction {
   type: 'FLIP_HAND';
 }
@@ -93,7 +93,7 @@ export interface PlayerState {
   id: string;
   name: string;
   hand: HandCard[];
-  hasFlipped: boolean;   // used their one-time flip
+  hasFlipped: boolean;   // current flip state (toggled on each flip)
   isReady: boolean;
   scoutTokens: number;   // received from opponents when scouted
   scoutShowTokens: number; // remaining scout-and-show chips this round
