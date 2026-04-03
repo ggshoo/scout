@@ -16,19 +16,14 @@ A fully-featured web app for playing **Scout** (the card game) online with **two
 
 ### ✅ Core Gameplay — 2-Player Scout Rules
 - 45-card deck (pairs 1–10, 26 used in 2-player game)
-- Hand orientation phase: flip your hand once before the round starts
-- **Show** action: play a consecutive set from your hand to beat the Active Set
-  - Valid sets: all-same-value (e.g. 3-3-3) or strictly consecutive ascending/descending (e.g. 4-5-6 or 6-5-4)
-  - Beat logic: more cards > fewer cards; same count → matching-number set beats consecutive set; same count & type → higher minimum value wins
-  - Defeated Active Set cards are collected as score counters (+1 point each)
-- **Scout** action: take the leftmost or rightmost card from the Active Set, insert anywhere in hand, optionally flip its face
-  - Costs 1 of the player's own Scout chips
-  - After Scouting, the same player takes another turn immediately
-  - If the player has no Scout chips they cannot Scout (must Show)
-- **Scout & Show** action: not used in 2-player mode
-- Each player starts each round with **3 Scout chips** (no Scout & Show chips)
-- Round end: when a player empties their hand OR the current player cannot Show or Scout
-- Score per round: `captured cards + remaining Scout chips − cards in hand`; winner bonus: +1 per opponent
+- Hand orientation phase: flip your hand as many times as you like before the round starts
+- **Show** action: play consecutive cards to beat the current table show
+- **Scout** action: take the leftmost or rightmost card from the table show, insert anywhere in hand
+- **Scout & Show** action: scout first then immediately show (1 token per round)
+- Valid set detection: all-same-value OR consecutive ascending run
+- Beat logic: more cards > fewer cards; same count → higher minimum value
+- Round end: when a player empties their hand OR consecutive scout stalemate
+- Score tracking: `scout tokens − cards in hand + win bonus` per round
 - 3-round game with running totals
 
 ### ✅ Real-time Architecture
@@ -156,7 +151,7 @@ docker run -p 4000:4000 scout-game
 1. **Create a room** — enter your name and click "Create Game"
 2. **Share the 6-letter code** with your friend (or copy the invite link)
 3. **Friend joins** — enters the code and their name
-4. **Orient your hand** — optionally flip your hand once to choose orientation
+4. **Orient your hand** — optionally flip your hand (as many times as you like) to choose orientation
 5. **Click Ready** — once both players are ready, the game starts
 
 ### On your turn:
